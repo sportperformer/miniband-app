@@ -1,4 +1,4 @@
-const CACHE_NAME = 'miniband-v3';
+const CACHE_NAME = 'miniband-v4';
 const APP_SHELL = [
   './',
   './index.html',
@@ -39,10 +39,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin: najpierw siec (zawsze swieza wersja gdy jest polaczenie),
+  // Same-origin: najpierw siec, z pominieciem HTTP cache przegladarki
+  // (no-store), zeby GitHub Pages nie serwowal starej wersji plikow;
   // dopiero brak polaczenia przelacza na zapisana kopie offline
+  const freshRequest = new Request(event.request.url, {
+    method: event.request.method,
+    headers: event.request.headers,
+    cache: 'no-store'
+  });
+
   event.respondWith(
-    fetch(event.request)
+    fetch(freshRequest)
       .then((response) => {
         if (response && response.status === 200) {
           const copy = response.clone();
