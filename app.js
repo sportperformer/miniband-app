@@ -139,30 +139,8 @@
     return 'tag-partia';
   }
 
-  function isAndroid() {
-    return /Android/i.test(navigator.userAgent || '');
-  }
-
-  function buildBraveIntentUrl(rawUrl) {
-    try {
-      const u = new URL(rawUrl);
-      const scheme = u.protocol.replace(':', '');
-      const rest = u.host + u.pathname + u.search + u.hash;
-      return 'intent://' + rest + '#Intent;scheme=' + scheme + ';package=com.brave.browser;S.browser_fallback_url=' + encodeURIComponent(rawUrl) + ';end';
-    } catch (e) {
-      return rawUrl;
-    }
-  }
-
   function buildPanelContent(ex) {
     if (ex.isYoutube && ex.videoId) {
-      if (isAndroid()) {
-        const braveUrl = buildBraveIntentUrl(ex.link);
-        return {
-          type: 'external',
-          html: '<a class="external-link-btn brave-btn" href="' + braveUrl + '" rel="noopener">Otwórz w Brave (bez reklam) ↗</a>'
-        };
-      }
       return {
         type: 'youtube',
         html: '<div class="video-frame"></div><p class="offline-note">Podgląd wymaga połączenia z internetem</p>'
