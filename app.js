@@ -51,16 +51,17 @@
     EXERCISES.forEach((ex) => {
       const entry = map[ex.id];
       if (entry === undefined) {
-        map[ex.id] = { done: ex.done, miejsce: ex.miejsce };
+        map[ex.id] = { done: ex.done, miejsce: ex.miejsce, hidden: false };
         changed = true;
       } else if (typeof entry === 'boolean') {
         // stary format zapisu (sama flaga "done") - migrujemy do obiektu
-        map[ex.id] = { done: entry, miejsce: ex.miejsce };
+        map[ex.id] = { done: entry, miejsce: ex.miejsce, hidden: false };
         ex.done = entry;
         changed = true;
       } else {
         ex.done = !!entry.done;
         ex.miejsce = entry.miejsce || ex.miejsce;
+        ex.hidden = !!entry.hidden;
       }
     });
     if (changed) saveStateMap(map);
@@ -68,7 +69,7 @@
 
   function persistPatch(id, patch) {
     const map = loadStateMap();
-    const current = map[id] && typeof map[id] === 'object' ? map[id] : { done: false, miejsce: 'Dowolnie' };
+    const current = map[id] && typeof map[id] === 'object' ? map[id] : { done: false, miejsce: 'Dowolnie', hidden: false };
     map[id] = Object.assign({}, current, patch);
     saveStateMap(map);
   }
@@ -112,6 +113,7 @@
   function getFiltered() {
     const q = state.search.trim().toLowerCase();
     return EXERCISES.filter((ex) => {
+      if (ex.hidden) return false;
       if (state.partia !== 'all' && ex.partia !== state.partia) return false;
       if (state.miejsce !== 'all' && ex.miejsce !== state.miejsce) return false;
       if (state.status === 'todo' && ex.done) return false;
@@ -125,13 +127,42 @@
 
   const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
   const CHEVRON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  const TRASH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg>';
 
   function miejsceTagClass(miejsce) {
     return miejsce === 'Silownia' ? 'tag-silownia' : 'tag-dowolnie';
   }
 
+  function partiaTagClass(partia) {
+    if (partia === 'Gorna') return 'tag-partia-gorna';
+    if (partia === 'Dolna') return 'tag-partia-dolna';
+    return 'tag-partia';
+  }
+
+  function isAndroid() {
+    return /Android/i.test(navigator.userAgent || '');
+  }
+
+  function buildBraveIntentUrl(rawUrl) {
+    try {
+      const u = new URL(rawUrl);
+      const scheme = u.protocol.replace(':', '');
+      const rest = u.host + u.pathname + u.search + u.hash;
+      return 'intent://' + rest + '#Intent;scheme=' + scheme + ';package=com.brave.browser;S.browser_fallback_url=' + encodeURIComponent(rawUrl) + ';end';
+    } catch (e) {
+      return rawUrl;
+    }
+  }
+
   function buildPanelContent(ex) {
     if (ex.isYoutube && ex.videoId) {
+      if (isAndroid()) {
+        const braveUrl = buildBraveIntentUrl(ex.link);
+        return {
+          type: 'external',
+          html: '<a class="external-link-btn brave-btn" href="' + braveUrl + '" rel="noopener">Otwórz w Brave (bez reklam) ↗</a>'
+        };
+      }
       return {
         type: 'youtube',
         html: '<div class="video-frame"></div><p class="offline-note">Podgląd wymaga połączenia z internetem</p>'
@@ -165,7 +196,7 @@
       '<div class="card-main">' +
         '<div class="card-top">' +
           '<span class="lp">#' + ex.id + '</span>' +
-          '<span class="tag tag-partia">' + (PARTIA_LABELS[ex.partia] || ex.partia) + '</span>' +
+          '<span class="tag ' + partiaTagClass(ex.partia) + '">' + (PARTIA_LABELS[ex.partia] || ex.partia) + '</span>' +
           '<button class="tag ' + miejsceTagClass(ex.miejsce) + '" data-miejsce-btn>' + (MIEJSCE_LABELS[ex.miejsce] || ex.miejsce) + '</button>' +
         '</div>' +
         '<h3 class="name">' + escapeHtml(ex.name) + '</h3>' +
@@ -188,7 +219,8 @@
       row.classList.toggle('is-expanded', expanded);
       panelWrap.hidden = !expanded;
       if (expanded) {
-        inner.innerHTML = panelData.html;
+        inner.innerHTML = panelData.html +
+          '<button class="delete-btn" data-delete-btn>Usuń to ćwiczenie z listy</button>';
         if (panelData.type === 'youtube') {
           const frame = inner.querySelector('.video-frame');
           const iframe = document.createElement('iframe');
@@ -198,6 +230,14 @@
           iframe.loading = 'lazy';
           frame.appendChild(iframe);
         }
+        inner.querySelector('[data-delete-btn]').addEventListener('click', (e) => {
+          e.stopPropagation();
+          const ok = window.confirm('Usunąć „' + ex.name + '” z listy? Zniknie z appki na stałe.');
+          if (!ok) return;
+          ex.hidden = true;
+          persistPatch(ex.id, { hidden: true });
+          render();
+        });
       } else {
         inner.innerHTML = '';
       }
@@ -253,8 +293,9 @@
   // ---------- Progress loop ----------
 
   function updateProgress() {
-    const total = EXERCISES.length;
-    const done = EXERCISES.filter((e) => e.done).length;
+    const visible = EXERCISES.filter((e) => !e.hidden);
+    const total = visible.length;
+    const done = visible.filter((e) => e.done).length;
     els.progressCount.textContent = done + ' / ' + total;
 
     const len = els.loopFill.getTotalLength();

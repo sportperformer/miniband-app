@@ -33,6 +33,10 @@
   --accent-soft: rgba(232, 96, 61, 0.14);
   --success: #1f9a6c;
   --success-soft: rgba(31, 154, 108, 0.14);
+  --partia-gorna: #c23b3b;
+  --partia-gorna-soft: rgba(194, 59, 59, 0.12);
+  --partia-dolna: #2f6fb0;
+  --partia-dolna-soft: rgba(47, 111, 176, 0.12);
   --radius: 16px;
   --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
@@ -316,6 +320,8 @@ input {
 .tag-dowolnie { background: var(--surface-2); color: var(--text-dim); }
 .tag-silownia { background: var(--accent-soft); color: var(--accent-text); }
 .tag-partia { background: transparent; color: var(--text-faint); border: 1px solid var(--border); }
+.tag-partia-gorna { background: var(--partia-gorna-soft); color: var(--partia-gorna); }
+.tag-partia-dolna { background: var(--partia-dolna-soft); color: var(--partia-dolna); }
 
 .name {
   margin: 0;
@@ -398,6 +404,21 @@ input {
 .offline-note {
   margin: 8px 0 0;
   font-size: 12px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.delete-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-faint);
   text-align: center;
 }
