@@ -28,7 +28,7 @@
 
   // ---------- Persistence ----------
 
-  function loadDoneMap() {
+  function loadStateMap() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : {};
@@ -37,7 +37,7 @@
     }
   }
 
-  function saveDoneMap(map) {
+  function saveStateMap(map) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
     } catch (e) {
@@ -46,23 +46,31 @@
   }
 
   function applyStoredState() {
-    const doneMap = loadDoneMap();
+    const map = loadStateMap();
     let changed = false;
     EXERCISES.forEach((ex) => {
-      if (Object.prototype.hasOwnProperty.call(doneMap, ex.id)) {
-        ex.done = !!doneMap[ex.id];
-      } else {
-        doneMap[ex.id] = ex.done;
+      const entry = map[ex.id];
+      if (entry === undefined) {
+        map[ex.id] = { done: ex.done, miejsce: ex.miejsce };
         changed = true;
+      } else if (typeof entry === 'boolean') {
+        // stary format zapisu (sama flaga "done") - migrujemy do obiektu
+        map[ex.id] = { done: entry, miejsce: ex.miejsce };
+        ex.done = entry;
+        changed = true;
+      } else {
+        ex.done = !!entry.done;
+        ex.miejsce = entry.miejsce || ex.miejsce;
       }
     });
-    if (changed) saveDoneMap(doneMap);
+    if (changed) saveStateMap(map);
   }
 
-  function persistOne(id, done) {
-    const map = loadDoneMap();
-    map[id] = done;
-    saveDoneMap(map);
+  function persistPatch(id, patch) {
+    const map = loadStateMap();
+    const current = map[id] && typeof map[id] === 'object' ? map[id] : { done: false, miejsce: 'Dowolnie' };
+    map[id] = Object.assign({}, current, patch);
+    saveStateMap(map);
   }
 
   // ---------- Chips (dynamiczne, wg danych) ----------
@@ -154,13 +162,13 @@
       '<button class="check-btn" aria-label="Oznacz jako nagrane">' +
         '<span class="check-circle">' + CHECK_SVG + '</span>' +
       '</button>' +
-      '<button class="card-main">' +
+      '<div class="card-main">' +
         '<div class="card-top">' +
           '<span class="lp">#' + ex.id + '</span>' +
-          '<span class="tag ' + miejsceTagClass(ex.miejsce) + '">' + (MIEJSCE_LABELS[ex.miejsce] || ex.miejsce) + '</span>' +
+          '<button class="tag ' + miejsceTagClass(ex.miejsce) + '" data-miejsce-btn>' + (MIEJSCE_LABELS[ex.miejsce] || ex.miejsce) + '</button>' +
         '</div>' +
         '<h3 class="name">' + escapeHtml(ex.name) + '</h3>' +
-      '</button>' +
+      '</div>' +
       '<button class="expand-btn" aria-label="Pokaż wzorzec">' + CHEVRON_SVG + '</button>';
 
     const panelWrap = document.createElement('div');
@@ -201,9 +209,19 @@
       e.stopPropagation();
       ex.done = !ex.done;
       row.dataset.done = ex.done ? 'true' : 'false';
-      persistOne(ex.id, ex.done);
+      persistPatch(ex.id, { done: ex.done });
       updateProgress();
       if (state.status !== 'all') render();
+    });
+
+    const tagBtn = row.querySelector('[data-miejsce-btn]');
+    tagBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ex.miejsce = ex.miejsce === 'Silownia' ? 'Dowolnie' : 'Silownia';
+      tagBtn.className = 'tag ' + miejsceTagClass(ex.miejsce);
+      tagBtn.textContent = MIEJSCE_LABELS[ex.miejsce] || ex.miejsce;
+      persistPatch(ex.id, { miejsce: ex.miejsce });
+      if (state.miejsce !== 'all') render();
     });
 
     card.appendChild(row);
@@ -271,7 +289,7 @@
   // ---------- Export / import ----------
 
   els.exportBtn.addEventListener('click', () => {
-    const map = loadDoneMap();
+    const map = loadStateMap();
     const blob = new Blob([JSON.stringify(map, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -291,9 +309,9 @@
     reader.onload = () => {
       try {
         const imported = JSON.parse(reader.result);
-        const current = loadDoneMap();
+        const current = loadStateMap();
         Object.assign(current, imported);
-        saveDoneMap(current);
+        saveStateMap(current);
         applyStoredState();
         render();
       } catch (err) {

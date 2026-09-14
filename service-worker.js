@@ -1,4 +1,4 @@
-const CACHE_NAME = 'miniband-v2';
+const CACHE_NAME = 'miniband-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -39,19 +39,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin: cache-first, w tle aktualizujemy cache jesli jest siec
+  // Same-origin: najpierw siec (zawsze swieza wersja gdy jest polaczenie),
+  // dopiero brak polaczenia przelacza na zapisana kopie offline
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const networkFetch = fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || networkFetch;
-    })
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
