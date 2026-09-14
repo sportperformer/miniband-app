@@ -165,6 +165,7 @@
       '<div class="card-main">' +
         '<div class="card-top">' +
           '<span class="lp">#' + ex.id + '</span>' +
+          '<span class="tag tag-partia">' + (PARTIA_LABELS[ex.partia] || ex.partia) + '</span>' +
           '<button class="tag ' + miejsceTagClass(ex.miejsce) + '" data-miejsce-btn>' + (MIEJSCE_LABELS[ex.miejsce] || ex.miejsce) + '</button>' +
         '</div>' +
         '<h3 class="name">' + escapeHtml(ex.name) + '</h3>' +

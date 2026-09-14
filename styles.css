@@ -313,8 +313,9 @@ input {
   letter-spacing: 0.04em;
 }
 
-.tag-dowolnie { background: rgba(255,255,255,0.06); color: var(--text-dim); }
+.tag-dowolnie { background: var(--surface-2); color: var(--text-dim); }
 .tag-silownia { background: var(--accent-soft); color: var(--accent-text); }
+.tag-partia { background: transparent; color: var(--text-faint); border: 1px solid var(--border); }
 
 .name {
   margin: 0;
