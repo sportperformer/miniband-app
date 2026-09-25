@@ -51,11 +51,11 @@
     EXERCISES.forEach((ex) => {
       const entry = map[ex.id];
       if (entry === undefined) {
-        map[ex.id] = { done: ex.done, miejsce: ex.miejsce, hidden: false };
+        map[ex.id] = { done: ex.done, miejsce: ex.miejsce, hidden: false, note: '' };
         changed = true;
       } else if (typeof entry === 'boolean') {
         // stary format zapisu (sama flaga "done") - migrujemy do obiektu
-        map[ex.id] = { done: entry, miejsce: ex.miejsce, hidden: false };
+        map[ex.id] = { done: entry, miejsce: ex.miejsce, hidden: false, note: '' };
         ex.done = entry;
         changed = true;
       } else {
@@ -63,13 +63,14 @@
         ex.miejsce = entry.miejsce || ex.miejsce;
         ex.hidden = !!entry.hidden;
       }
+      ex.note = (map[ex.id] && map[ex.id].note) || '';
     });
     if (changed) saveStateMap(map);
   }
 
   function persistPatch(id, patch) {
     const map = loadStateMap();
-    const current = map[id] && typeof map[id] === 'object' ? map[id] : { done: false, miejsce: 'Dowolnie', hidden: false };
+    const current = map[id] && typeof map[id] === 'object' ? map[id] : { done: false, miejsce: 'Dowolnie', hidden: false, note: '' };
     map[id] = Object.assign({}, current, patch);
     saveStateMap(map);
   }
@@ -128,6 +129,7 @@
   const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
   const CHEVRON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
   const TRASH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg>';
+  const NOTE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H8l-4 4V4z"/></svg>';
 
   function miejsceTagClass(miejsce) {
     return miejsce === 'Silownia' ? 'tag-silownia' : 'tag-dowolnie';
@@ -176,6 +178,7 @@
           '<span class="lp">#' + ex.id + '</span>' +
           '<span class="tag ' + partiaTagClass(ex.partia) + '">' + (PARTIA_LABELS[ex.partia] || ex.partia) + '</span>' +
           '<button class="tag ' + miejsceTagClass(ex.miejsce) + '" data-miejsce-btn>' + (MIEJSCE_LABELS[ex.miejsce] || ex.miejsce) + '</button>' +
+          '<span class="note-dot" data-note-dot' + (ex.note ? '' : ' hidden') + '>' + NOTE_SVG + '</span>' +
         '</div>' +
         '<h3 class="name">' + escapeHtml(ex.name) + '</h3>' +
       '</div>' +
@@ -198,6 +201,10 @@
       panelWrap.hidden = !expanded;
       if (expanded) {
         inner.innerHTML = panelData.html +
+          '<div class="note-section">' +
+            '<label class="note-label" for="note-' + ex.id + '">Notatka</label>' +
+            '<textarea class="note-input" id="note-' + ex.id + '" placeholder="Dodaj notatkę…">' + escapeHtml(ex.note || '') + '</textarea>' +
+          '</div>' +
           '<button class="delete-btn" data-delete-btn>Usuń to ćwiczenie z listy</button>';
         if (panelData.type === 'youtube') {
           const frame = inner.querySelector('.video-frame');
@@ -216,6 +223,22 @@
           persistPatch(ex.id, { hidden: true });
           render();
         });
+
+        const noteInput = inner.querySelector('.note-input');
+        let noteTimer = null;
+        function saveNote() {
+          clearTimeout(noteTimer);
+          const val = noteInput.value;
+          ex.note = val;
+          persistPatch(ex.id, { note: val });
+          const dot = row.querySelector('[data-note-dot]');
+          if (dot) dot.hidden = !val.trim();
+        }
+        noteInput.addEventListener('input', () => {
+          clearTimeout(noteTimer);
+          noteTimer = setTimeout(saveNote, 400);
+        });
+        noteInput.addEventListener('blur', saveNote);
       } else {
         inner.innerHTML = '';
       }
